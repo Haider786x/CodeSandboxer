@@ -27,13 +27,16 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/ready', (req, res) => {
+  if (process.env.EXECUTION_MODE === 'local') {
+    return res.json({ status: 'ok', mode: 'local' });
+  }
   // Check if Docker daemon is reachable
   exec('docker info', (error) => {
     if (error) {
       logger.error('Docker daemon is not reachable', error);
       return res.status(503).json({ status: 'error', message: 'Docker daemon not reachable' });
     }
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok', mode: 'docker' });
   });
 });
 
