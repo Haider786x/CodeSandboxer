@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  judge:
+    build: .
+    container_name: codebattle-judge
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount Docker socket to spawn sibling containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount host temp dir to /app/temp in container
+      # On Windows, we use a relative path that resolves to the host path
+      - ./temp:/app/temp
+    environment:
+      # We tell the judge the host path so it can mount it when spawning containers
+      - HOST_BASE_DIR=${HOST_BASE_DIR:-./temp}
+      - PORT=3000

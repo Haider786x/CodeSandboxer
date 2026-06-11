@@ -1,0 +1,21 @@
+{
+  "name": "codebattle-judge",
+  "version": "1.0.0",
+  "description": "Remote code execution Judge microservice for CodeBattle",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "test": "node test/integration.test.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pino": "^9.1.0",
+    "pino-pretty": "^11.0.0",
+    "uuid": "^10.0.0"
+  }
+}
