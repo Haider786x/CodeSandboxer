@@ -15,6 +15,17 @@ router.post('/', async (req, res) => {
     });
   }
 
+  // Java can be disabled via ENABLE_JAVA=false for deployments that lack a JDK
+  // (e.g. Render Free tier). All other languages are unaffected.
+  if (language === 'java' && process.env.ENABLE_JAVA === 'false') {
+    return res.status(400).json({
+      status: 'Unsupported Language',
+      stdout: '',
+      stderr: 'Java execution is disabled on this deployment.',
+      executionTimeMs: 0
+    });
+  }
+
   const supportedLanguages = ['python', 'javascript', 'java'];
   if (!supportedLanguages.includes(language)) {
     return res.status(400).json({

@@ -391,12 +391,50 @@ docker-compose up --build
 | `PORT` | `3000` | TCP port the HTTP server listens on |
 | `NODE_ENV` | *(unset)* | Set to `production` for JSON logs; any other value uses pino-pretty |
 | `EXECUTION_MODE` | `docker` | `local` (run on host) or `docker` (run in containers) |
+| `ENABLE_JAVA` | `true` | Set to `false` to disable Java on platforms without a JDK (e.g. Render Free) |
 | `LOCAL_TEMP_DIR` | `<project>/temp` | Where the judge writes temp files on the local filesystem |
 | `HOST_BASE_DIR` | same as `LOCAL_TEMP_DIR` | Host path the Docker daemon uses for volume mounts (may differ in Docker-in-Docker) |
 | `CORS_ORIGIN` | `*` | Allowed CORS origin(s). Single value or comma-separated list |
 
 > [!TIP]
 > Copy `.env.example` to `.env` as a starting point. `.env` is in `.gitignore` and will never be committed.
+
+---
+
+# 🚩 Feature Flags
+
+## ENABLE_JAVA
+
+Some hosting platforms (such as **Render Free**) provide Node.js and Python but do not include a JDK. Without this flag, startup validation would fail with:
+
+```
+Local execution mode failed: Missing required runtimes: Java
+```
+
+Set `ENABLE_JAVA=false` to deploy without Java support:
+
+```env
+ENABLE_JAVA=false
+```
+
+**What changes when `ENABLE_JAVA=false`:**
+
+* Startup validation skips the Java runtime check — the service starts successfully without a JDK.
+* `GET /ready` reports `"java": false` in the runtimes object.
+* `POST /execute` with `"language": "java"` returns **HTTP 400**:
+
+```json
+{
+  "status": "Unsupported Language",
+  "stderr": "Java execution is disabled on this deployment."
+}
+```
+
+**What does NOT change:**
+
+* Node.js and Python execution are completely unaffected.
+* Docker mode continues to support Java exactly as before (Docker images carry their own JDK).
+* Setting `ENABLE_JAVA=true` or leaving it unset restores full Java support.
 
 ---
 

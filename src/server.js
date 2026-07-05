@@ -50,8 +50,8 @@ app.get('/ready', (req, res) => {
       mode: 'local',
       runtimes: {
         node: true,
-        java: true,
-        python: true
+        python: true,
+        java: process.env.ENABLE_JAVA !== 'false'
       }
     });
   }
