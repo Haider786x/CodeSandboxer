@@ -4,7 +4,7 @@ const languageConfigs = {
   python: {
     image: 'codebattle-python',
     filename: 'script.py',
-    runCommand: ['python3', 'script.py']
+    runCommand: [process.platform === 'win32' ? 'python' : 'python3', 'script.py']
   },
   javascript: {
     image: 'codebattle-node',

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "test": "node test/integration.test.js"
+    "test": "node test/integration.test.js",
+    "build:images": "bash docker/build.sh"
   },
   "author": "",
   "license": "ISC",

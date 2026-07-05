@@ -10,11 +10,12 @@ const TIME_LIMIT_MS = 5000;
  * Runs a Docker container using spawn and captures output.
  * @param {string} uuid - Unique identifier for the execution.
  * @param {string} hostDir - The host directory to mount.
+ * @param {string} localDir - Unused in Docker runner (hostDir is used for volume mount).
  * @param {string} image - The Docker image to use.
  * @param {string[]} commandArgs - The command to run inside the container.
  * @returns {Promise<{stdout: string, stderr: string, errorType: string | null, executionTimeMs: number}>}
  */
-async function runDocker(uuid, hostDir, image, commandArgs) {
+async function runDocker(uuid, hostDir, localDir, image, commandArgs) {
   const containerName = `judge-${uuid}`;
 
   const dockerArgs = [
@@ -45,20 +46,13 @@ async function runDocker(uuid, hostDir, image, commandArgs) {
 
     const child = spawn('docker', dockerArgs);
 
-    // Timeout logic
-    const timeoutId = setTimeout(() => {
-      if (!isFinished) {
-        isFinished = true;
-        errorType = 'Time Limit Exceeded';
-        // Force kill the container
-        exec(`docker kill ${containerName}`, () => {
-          resolveResult();
-        });
-      }
-    }, TIME_LIMIT_MS);
-
+    /**
+     * Resolves the promise exactly once.
+     * All code paths (timeout, close, error) call this function.
+     * The isFinished flag ensures the promise is never resolved more than once.
+     */
     function resolveResult() {
-      if (isFinished && errorType !== 'Time Limit Exceeded' && errorType !== 'Output Limit Exceeded') return;
+      if (isFinished) return;
       isFinished = true;
       clearTimeout(timeoutId);
       const executionTimeMs = Date.now() - startTime;
@@ -69,6 +63,18 @@ async function runDocker(uuid, hostDir, image, commandArgs) {
         executionTimeMs
       });
     }
+
+    // Timeout logic: kill the container then resolve once the kill succeeds.
+    const timeoutId = setTimeout(() => {
+      if (!isFinished) {
+        errorType = 'Time Limit Exceeded';
+        // Force kill the container; resolve inside the callback so that
+        // executionTimeMs reflects the full wall-clock time.
+        exec(`docker kill ${containerName}`, () => {
+          resolveResult();
+        });
+      }
+    }, TIME_LIMIT_MS);
 
     child.stdout.on('data', (data) => {
       if (isFinished) return;

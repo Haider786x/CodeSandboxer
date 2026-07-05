@@ -2,10 +2,23 @@ const fs = require('fs/promises');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-// Ensure base temp directory exists relative to project root
-const LOCAL_TEMP_DIR = path.resolve(__dirname, '../../temp');
-// Used for docker -v mounting
-const HOST_BASE_DIR = process.env.HOST_BASE_DIR || LOCAL_TEMP_DIR;
+// LOCAL_TEMP_DIR: where THIS process writes temp files on the local filesystem.
+// Can be overridden via LOCAL_TEMP_DIR env var; defaults to <project-root>/temp.
+const LOCAL_TEMP_DIR = process.env.LOCAL_TEMP_DIR
+  ? path.resolve(process.env.LOCAL_TEMP_DIR)
+  : path.resolve(__dirname, '../../temp');
+
+// HOST_BASE_DIR: the path the Docker daemon uses when mounting temp dirs into
+// sibling containers.  In Docker-in-Docker deployments this may differ from
+// LOCAL_TEMP_DIR because the volume is mounted from the *host* filesystem.
+//
+// If HOST_BASE_DIR is a relative path (e.g. the default "./temp" set in
+// docker-compose.yml) we resolve it to an absolute path so that volume-mount
+// strings passed to `docker run -v` are unambiguous on any host OS.
+//
+// Defaults to LOCAL_TEMP_DIR when not set.
+const rawHostBaseDir = process.env.HOST_BASE_DIR || LOCAL_TEMP_DIR;
+const HOST_BASE_DIR = path.resolve(rawHostBaseDir);
 
 async function initTempDir() {
   try {
@@ -22,9 +35,18 @@ initTempDir();
  */
 async function createTempDir() {
   const uuid = uuidv4();
-  const localDir = path.join(LOCAL_TEMP_DIR, uuid);
-  // Construct the host path assuming HOST_BASE_DIR uses forward slashes or is properly formatted
-  // path.join with HOST_BASE_DIR might mess up if mixing windows/linux. Let's just use string concat for safety, or posix.join
+  const localDir = path.resolve(path.join(LOCAL_TEMP_DIR, uuid));
+
+  // Defense-in-depth: verify the resolved path is inside LOCAL_TEMP_DIR.
+  // uuidv4() output is safe, but this guard protects against any future
+  // change that might allow user-influenced path segments.
+  if (!localDir.startsWith(LOCAL_TEMP_DIR + path.sep) && localDir !== LOCAL_TEMP_DIR) {
+    throw new Error(`Path traversal detected: resolved temp path is outside base dir`);
+  }
+
+  // Construct the host-side path using the resolved HOST_BASE_DIR.
+  // We normalise to forward slashes so the path is valid inside a Linux
+  // container even when the judge is running on Windows.
   const hostDir = `${HOST_BASE_DIR}/${uuid}`.replace(/\\/g, '/');
 
   await fs.mkdir(localDir, { recursive: true });

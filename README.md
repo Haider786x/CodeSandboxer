@@ -179,11 +179,13 @@ Perfect for:
 * Development
 * Testing
 * MVP Deployments
-* Render Deployments
+* Render / Railway / Fly.io Deployments
 
 ```env
 EXECUTION_MODE=local
 ```
+
+In local mode the judge runs code directly using the system's installed runtimes (Node.js, Python, Java). No Docker is required. The service validates that all three runtimes are available at startup and exits with a clear error if any are missing.
 
 ---
 
@@ -201,6 +203,21 @@ Benefits:
 * 🚫 No Network Access
 * 🧱 Stronger Sandboxing
 * 📈 Production Ready
+
+Requires the Docker daemon socket to be accessible. When running the judge inside Docker itself, mount the host socket:
+
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+```
+
+Build the language runner images before starting the service:
+
+```bash
+bash docker/build.sh
+# or
+npm run build:images
+```
 
 ---
 
@@ -256,21 +273,38 @@ gets automatically deleted after execution.
 # 📂 Project Structure
 
 ```text
-src/
-├── routes/
-│   └── execute.js
+.
+├── docker/
+│   ├── build.sh                 # Builds all language runner images
+│   └── images/
+│       ├── python/Dockerfile    # codebattle-python (Python 3.9)
+│       ├── node/Dockerfile      # codebattle-node   (Node.js 18)
+│       └── java/Dockerfile      # codebattle-java   (Java 17 JDK)
 │
-├── services/
-│   ├── executor.js
-│   ├── runnerFactory.js
-│   ├── localRunner.js
-│   ├── dockerRunner.js
-│   └── languageRunner.js
+├── src/
+│   ├── routes/
+│   │   └── execute.js
+│   │
+│   ├── services/
+│   │   ├── executor.js
+│   │   ├── runnerFactory.js
+│   │   ├── localRunner.js
+│   │   ├── dockerRunner.js
+│   │   └── languageRunner.js
+│   │
+│   ├── utils/
+│   │   ├── tempFiles.js
+│   │   └── validateRuntimes.js
+│   │
+│   └── server.js
 │
-├── utils/
-│   └── tempFiles.js
+├── test/
+│   └── integration.test.js
 │
-└── server.js
+├── .env.example                 # All supported environment variables
+├── docker-compose.yml
+├── Dockerfile
+└── package.json
 ```
 
 ---
@@ -280,9 +314,9 @@ src/
 ## 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/your-username/codesandboxer.git
+git clone https://github.com/Haider786x/CodeSandboxer.git
 
-cd codesandboxer
+cd CodeSandboxer
 ```
 
 ---
@@ -297,18 +331,72 @@ npm install
 
 ## 3️⃣ Configure Environment
 
+Copy the example env file and edit as needed:
+
+```bash
+cp .env.example .env
+```
+
+Minimum configuration for local mode:
+
 ```env
 PORT=3000
+NODE_ENV=production
 EXECUTION_MODE=local
+```
+
+For Docker mode, also set:
+
+```env
+EXECUTION_MODE=docker
+HOST_BASE_DIR=/absolute/path/to/temp
 ```
 
 ---
 
-## 4️⃣ Start Service
+## 4️⃣ (Docker Mode Only) Build Language Runner Images
 
 ```bash
-npm start
+bash docker/build.sh
 ```
+
+Or force a full rebuild:
+
+```bash
+bash docker/build.sh --no-cache
+```
+
+---
+
+## 5️⃣ Start Service
+
+**Local mode:**
+
+```bash
+EXECUTION_MODE=local npm start
+```
+
+**Docker mode (via docker-compose):**
+
+```bash
+docker-compose up --build
+```
+
+---
+
+# 🔧 Environment Variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PORT` | `3000` | TCP port the HTTP server listens on |
+| `NODE_ENV` | *(unset)* | Set to `production` for JSON logs; any other value uses pino-pretty |
+| `EXECUTION_MODE` | `docker` | `local` (run on host) or `docker` (run in containers) |
+| `LOCAL_TEMP_DIR` | `<project>/temp` | Where the judge writes temp files on the local filesystem |
+| `HOST_BASE_DIR` | same as `LOCAL_TEMP_DIR` | Host path the Docker daemon uses for volume mounts (may differ in Docker-in-Docker) |
+| `CORS_ORIGIN` | `*` | Allowed CORS origin(s). Single value or comma-separated list |
+
+> [!TIP]
+> Copy `.env.example` to `.env` as a starting point. `.env` is in `.gitignore` and will never be committed.
 
 ---
 
